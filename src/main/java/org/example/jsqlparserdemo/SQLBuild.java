@@ -1,15 +1,15 @@
 package org.example.jsqlparserdemo;
 
 import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.relational.Between;
-import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
-import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.expression.operators.relational.*;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.util.SelectUtils;
+
+import java.util.List;
 
 public class SQLBuild {
     public static void main(String[] args) throws Exception {
@@ -41,7 +41,7 @@ public class SQLBuild {
 
         // ---
 
-        stmt = (Select) CCJSqlParserUtil.parse("SELECT * FROM table WHERE col1 > 10 AND col2 = 'hello' AND col3 LIKE '%baa%' AND col4 = true AND zone = 'sh'");
+        stmt = (Select) CCJSqlParserUtil.parse("SELECT * FROM table WHERE col1 > 10 AND col2 = 'hello' AND col3 LIKE '%baa%' AND col4 = true AND col5 IN ('aaa', 'bbb') AND col6 IN (1,2,3) AND zone = 'sh'");
         System.out.println("before " + stmt.toString());
 
         ((PlainSelect)stmt.getSelectBody()).getWhere().accept(new ExpressionVisitorAdapter() {
@@ -77,7 +77,27 @@ public class SQLBuild {
                 }
             }
 
-            // 其他...
+            @Override
+            public void visit(InExpression expr) {
+                Expression left = expr.getLeftExpression();
+//                Expression right = expr.getRightExpression();
+                ItemsList rightItemList = expr.getRightItemsList();
+                if (left.getClass() == Column.class) {
+                    String currColName = ((Column)left).getColumnName();
+                    List<Expression> rightExpressions = ((ExpressionList)rightItemList).getExpressions();
+                    if (rightExpressions.size() > 0) {
+                        if (rightExpressions.get(0).getClass() == StringValue.class ) {
+                            if (!currColName.equals("zone")) {
+                                ((Column)left).setColumnName("string_map_v2{'" + currColName + "'}");
+                            }
+                        } else if (rightExpressions.get(0).getClass() == LongValue.class) {
+                            ((Column)left).setColumnName("number_map_v2{'" + currColName + "'}");
+                        }
+                    }
+                }
+            }
+
+            // 其他情形...
         });
 
         System.out.println("after " + stmt.toString());
